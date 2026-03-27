@@ -185,7 +185,7 @@ def result_LO(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee, hc, GF, Vud):
 
     prefactor = 1e16 * hc**2 * GF**2 * Vud**2
 
-    term1 = ((gV**2 + gA**2) * Ee / Enu - (me**2 + Q2) / (4 * Enu**2) * (gV**2 - gA**2)) * mp / np.pi
+    term1 = ((gV**2 + gA**2) * (Enu - E0) / Enu - (me**2 + Q2) / (4 * Enu**2) * (gV**2 - gA**2)) * mp / np.pi
     term2 = recoil(mp, mn, me, gV, gA, E0, Enu, Q2)
     term3 = WM(mp, mn, me, gV, gA, muV, E0, Enu, Q2)
     term4 = FF(mp, me, gV, gA, rV2, rA2, E0, Enu, Q2, hc)
@@ -831,7 +831,7 @@ def main():
     muV = constants.physical_constants['proton mag. mom. to nuclear magneton ratio'][0] - constants.physical_constants['neutron mag. mom. to nuclear magneton ratio'][0]                                                                          # isovector-vector magnetic moment
     Vud = 0.97348                                                                           # CKM matrix element
     gV = 1.02499                                                                            # gV coupling constant
-    lambdaA = 1.27660									    # ratio of gA/gV coupling constants
+    lambdaA = 1.27559									    # ratio of gA/gV coupling constants
     gA = lambdaA * gV                                                                       # gA coupling constant
     rV2 = 0.578                                                                             # squared isovector-vector radius in fm²
     rA2 = 0.48                                                                              # squared axial-vector radius in fm²
