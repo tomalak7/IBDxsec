@@ -29,7 +29,9 @@ Key Functions:
 - result_EM(...):        QED radiative correction to electromagnetic energy spectrum.
 - result_elastic(...):   QED radiative correction to positron energy spectrum in elastic kinematics.
 - result_inelastic(...): Positron energy spectrum in inelastic (radiative) kinematics.
+- resultLOphoton(...):   Leading-order result with factorizable radiative corrections for evaluation from positron kinematics.
 - result2D(...):         2D distribution in positron energy and angle in radiative IBD.
+- result3D(...):         3D distribution in positron energy, angle, and photon energy in radiative IBD.
 
 Usage:
 ------
@@ -44,7 +46,7 @@ Dependencies:
 - scipy.special.spence
 
 Author: Oleksandr Tomalak
-Date: 12-07-2025
+Date: 04-04-2026
 
 References:
 -----------
@@ -703,6 +705,68 @@ def result_inelastic(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, hc, GF, Vud, 
     term9 = 2 * (mp/pi) * term9_factor * term9_inner
    
     return 1e16 * hc**2 * alpha/pi * GF**2 * Vud**2 * (term1 + term2 + term3 + term4 + term5 + term6 + term7 + term8 + term9)
+    
+def resultLOphoton(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, l0, epsilon, hc, GF, Vud, alpha):
+    """
+    Leading-order result with factorizable radiative corrections for evaluation 
+    of distributions from positron kinematics, 
+    including recoil, weak magnetism, and nucleon structure corrections.
+    
+    Parameters
+    ----------
+    mp, mn, me : float
+        Masses of proton, neutron, and positron (GeV).
+    gV, gA : float
+        Vector and axial-vector coupling constants.
+    rV2, rA2 : float
+        Squared isovector-vector and axial-vector radii (fm²).
+    muV : float
+        Isovector-vector magnetic moment.
+    Enu : float
+        Antineutrino energy (GeV).
+    l0 : float
+        Positron energy variable (GeV).
+    epsilon : float
+        Soft-photon energy cutoff (GeV).
+    hc : float
+        Reduced Planck constant times speed of light (GeV·fm).
+    GF : float
+        Fermi coupling constant (GeV⁻²).
+    Vud : float
+        CKM matrix element.
+    alpha : float
+        Fine-structure constant.
+    
+    Returns
+    -------
+    float
+        Leading-order cross section with radiative corrections (10⁻⁴² cm²/GeV).
+    """
+    En = mp + Enu - l0
+    E0 = (mn**2 + me**2 - mp**2) / (2 * mn)
+    Q2 = mp**2 - mn**2 - 2 * mp * (mp - En)
+    beta0 = np.sqrt(1 - me**2 / l0**2)
+    
+    prefactor = 1e16 * hc**2 * GF**2 * Vud**2
+    
+    # Main term with radiative corrections
+    term1 = ((gV**2 + gA**2) * l0 / Enu - (me**2 + Q2) / (4 * Enu**2) * (gV**2 - gA**2)) * mp / np.pi
+    term1_corr = term1 * (1 + alpha / np.pi * (delta_v(beta0) + delta_s(beta0, me, epsilon) + 
+                                               delta_2p(Enu, l0, En, mn, me)))
+    
+    # Subtract the leading term to avoid double counting
+    term2 = -((gV**2 + gA**2) * l0 / Enu) * mp / np.pi
+    
+    term3 = ((gV**2 + gA**2) * (1 - E0 / Enu)) * mp / np.pi
+    
+    term4 = (alpha / np.pi) * mp / np.pi * me / Enu * (gV**2 + 3 * gA**2) * \
+            np.sqrt(1 - beta0**2) / (4 * beta0) * np.log(np.abs((1 + beta0) / (1 - beta0)))
+    
+    term5 = recoil(mp, mn, me, gV, gA, E0, Enu, Q2)
+    term6 = WM(mp, mn, me, gV, gA, muV, E0, Enu, Q2)
+    term7 = FF(mp, me, gV, gA, rV2, rA2, E0, Enu, Q2, hc)
+    
+    return prefactor * (term1_corr + term2 + term3 + term4 + term5 + term6 + term7)
 
 def result2D(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, f, hc, GF, Vud, alpha):
     """
@@ -731,6 +795,7 @@ def result2D(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, f, hc, GF, Vud, alpha
         CKM matrix element.
     alpha : float
         Fine-structure constant.
+        
     Returns
     -------
     float
@@ -781,6 +846,78 @@ def result2D(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, f, hc, GF, Vud, alpha
     prefactor = 1e16 * hc**2 * alpha / pi * GF**2 * Vud**2 * mp / (pi * E_nu**2)
 
     return prefactor * (term1 + term2 + term3 + term4 + term5 + term6)
+    
+def result3D(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee, Egamma, f, hc, GF, Vud, alpha):
+    """
+    3-dimensional distribution in positron energy, angle, and photon energy for radiative IBD.
+    
+    Parameters
+    ----------
+    mp, mn, me : float
+        Masses of proton, neutron, and positron (GeV).
+    gV, gA : float
+        Vector and axial-vector coupling constants.
+    rV2, rA2 : float
+        Squared isovector-vector and axial-vector radii (fm²).
+    muV : float
+        Isovector-vector magnetic moment.
+    Enu : float
+        Antineutrino energy (GeV).
+    Ee : float
+        Positron energy (GeV).
+    Egamma : float
+        Photon energy (GeV).
+    f : float
+        Variable for the positron scattering angle (GeV).
+    hc : float
+        Reduced Planck constant times speed of light (GeV·fm).
+    GF : float
+        Fermi coupling constant (GeV⁻²).
+    Vud : float
+        CKM matrix element.
+    alpha : float
+        Fine-structure constant.
+    
+    Returns
+    -------
+    float
+        3D differential cross section (10⁻⁴² cm²/GeV²).
+    """
+    pi = np.pi
+    
+    l0 = mp + Enu - Ee
+    E0 = (mn**2 + me**2 - mp**2) / (2 * mn)
+    beta = np.sqrt(1 - me**2 / Ee**2)
+    theta = me / Ee
+    l2 = l0**2 - f**2
+    
+    sigma = (me / Ee) * (Enu**2 - f**2 - Ee**2 + me**2) * (l2 - mn**2 - 2 * Egamma * l0) + 4 * Egamma * me * f**2
+    
+    d = (beta**2 * me**2 * Enu**2 * 
+         ((l2 - mn**2)**2 + 4 * Egamma**2 * l2 - 4 * l0 * Egamma * (l2 - mn**2)) * 
+         (1 - ((Enu**2 + beta**2 * Ee**2 - f**2) / (2 * beta * Enu * Ee))**2) + 
+         sigma**2 / 4)
+    
+    sqrt_d = np.sqrt(d)
+    log_term = np.log(np.abs((1 + beta) / (1 - beta)))
+    
+    # (gV^2 + gA^2) part
+    term1_a = -((Egamma * Enu * f**4 * theta**2 * me**2 * sigma * (Ee + Egamma)) / d**(3/2))
+    term1_b = (Enu * f**2 * theta) / sqrt_d * ((Ee + Egamma)**2 + Ee**2)
+    term1_c = -((Ee + Egamma) * Enu) / (2 * Egamma)
+    sum_couplings = (term1_a + term1_b + term1_c) * (gV**2 + gA**2)
+    
+    # (gV^2 - gA^2) part
+    term2_a = ((theta**2 * f**4 * me**2 * sigma * Egamma) / (2 * d**(3/2)) - 
+               (f**2 * me) / (2 * sqrt_d) * (Ee + Egamma) / Ee) * (mp * (Enu - Ee - Egamma) - mn * E0 + me**2)
+    term2_b = (Enu - Ee - Egamma) / 4
+    term2_c = (f**2 * theta) / (4 * sqrt_d) * (((Enu - Ee)**2 - f**2) * Ee + me**2 * (2 * Egamma - Ee))
+    term2_d = -((Enu - Ee)**2 - f**2 - me**2) / (8 * Egamma)
+    diff_couplings = (term2_a + term2_b + term2_c + term2_d) * (gV**2 - gA**2)
+    
+    prefactor = 1e16 * hc**2 * alpha / pi * GF**2 * Vud**2 * mp / (pi * Enu**2) * (1 / Egamma)
+    
+    return prefactor * np.real(sum_couplings + diff_couplings)
 
 def main():
     """
@@ -803,6 +940,8 @@ def main():
         * rV2, rA2: Squared isovector-vector and axial-vector radii (fm²)
     - Sets up kinematic variables for antineutrino and positron energies, angular variable, and soft-photon energy cutoff.
     - Computes and prints:
+        * The 3D (positron energy, angle, and photon energy) differential cross section in radiative IBD (via result3D)
+        * The leading-order positron energy spectrum with factorizable radiative corrections for evaluation from positron kinematics, with recoil, weak magnetism, and nucleon structure corrections (via resultLOphoton)
         * The 2D (positron energy and angle) differential cross section in radiative IBD (via result2D)
         * The inelastic positron energy spectrum (via result_inelastic)
         * The QED radiative correction to elastic positron energy spectrum (via result_elastic)
@@ -814,7 +953,7 @@ def main():
     The output allows users to verify the correctness and behavior of the theoretical routines provided in the script.
 
     Note:
-        - The function expects all the required calculation functions (result2D, result_inelastic, result_elastic,
+        - The function expects all the required calculation functions (result3D, resultLOphoton, result2D, result_inelastic, result_elastic,
           result_EM_static, result_EM, result_LO, delta_v, f2, delta_s, delta_2p, delta_2_em, delta_1, delta_2) to be defined in the same module.
         - The function does not return any value; it outputs results to standard output.
 
@@ -837,9 +976,14 @@ def main():
     rA2 = 0.48                                                                              # squared axial-vector radius in fm²
     E_nu = 0.005                                                                            # antineutrino energy in GeV
     E_e = 0.002                                                                             # positron energy in GeV
+    E_gamma = 0.0016965                                                            # photon energy in GeV
     f = 0.0035                                                                              # variable f in GeV
     epsilon = 1e-10                                                                         # soft-photon energy cutoff in GeV
 
+    result = resultLOphoton(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, E_gamma, hc, GF, Vud, alpha)
+    print(f"Leading-order result with factorizable radiative corrections for evaluation from positron kinematics, with recoil, weak magnetism, and nucleon structure corrections: {result}")
+    result = result3D(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, E_gamma, f, hc, GF, Vud, alpha)
+    print(f"3D distribution: {result}")
     result = result2D(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, f, hc, GF, Vud, alpha)
     print(f"2D distribution: {result}")
     result = result_inelastic(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, hc, GF, Vud, alpha)
@@ -847,10 +991,10 @@ def main():
     E_e = 0.00368                                                                           # positron energy in GeV
     result = result_elastic(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, epsilon, hc, GF, Vud, alpha, delta_v, f2, delta_s, delta_2p)
     print(f"Radiative correction to positron energy spectrum, elastic kinematics: {result}")
-    result = result_EM_static(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, epsilon, hc, GF, Vud, alpha, delta_1, delta_2)
-    print(f"Radiative correction to electromagnetic energy spectrum with phase-space integration in the static limit: {result}")
     result = result_EM(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, epsilon, hc, GF, Vud, alpha, delta_v, f2, delta_s, delta_2_em)
     print(f"Radiative correction to electromagnetic energy spectrum: {result}")
+    result = result_EM_static(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, epsilon, hc, GF, Vud, alpha, delta_1, delta_2)
+    print(f"Radiative correction to electromagnetic energy spectrum with phase-space integration in the static limit: {result}")
     result = result_LO(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, hc, GF, Vud)
     print(f"Leading-order result with recoil, weak magnetism, and nucleon structure corrections: {result}")
 
