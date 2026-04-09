@@ -18,6 +18,7 @@ Key Functions:
 - WM(...):               Weak magnetism correction.
 - FF(...):               Nucleon structure (form factor) correction.
 - result_LO(...):        Leading-order IBD spectrum with recoil, weak magnetism, and nucleon structure corrections.
+- pions(...):            Pion-induced QED radiative correction to the IBD spectrum.
 - delta_v(...):          Factorizable virtual-photon QED correction.
 - f2(...):               QED form factor f2 for nonfactorizable virtual-photon QED correction.
 - delta_s(...):          Soft-photon QED correction.
@@ -46,11 +47,11 @@ Dependencies:
 - scipy.special.spence
 
 Author: Oleksandr Tomalak
-Date: 04-04-2026
+Date: 05-04-2026
 
 References:
 -----------
-- Tomalak, O. (2025). Theory of inverse beta decay for reactor antineutrinos, arXiv:2512.07956
+- Tomalak, O. (2025). Theory of inverse beta decay for reactor antineutrinos, arXiv:2512.07956 and arXiv:2604.
 """
 
 import numpy as np
@@ -194,6 +195,70 @@ def result_LO(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee, hc, GF, Vud):
 
     return prefactor * (term1 + term2 + term3 + term4)
 
+def pions(mpi, mp, mn, me, gV, gA, E_nu, E_e, hc, GF, Vud, alpha, Zpi, c4):
+    """
+    Compute the pion-induced QED radiative correction in IBD.
+    Parameters
+    ----------
+    mpi : float
+        Pion mass (GeV).
+    mp, mn, me : float
+        Masses of proton, neutron, and positron (GeV).
+    gV, gA : float
+        Vector and axial-vector coupling constants.
+    E_nu : float
+        Antineutrino energy (GeV).
+    E_e : float
+        Positron energy (GeV).
+    hc : float
+        Reduced Planck constant times speed of light (GeV·fm).
+    GF : float
+        Fermi coupling constant (GeV⁻²).
+    Vud : float
+        CKM matrix element.
+    alpha : float
+        Fine-structure constant.
+    Zpi : float
+        Pion isospin-violating low-energy constant.
+    c4 : float
+        NLO HBChPT low-energy constant (GeV⁻¹)
+    Returns
+    -------
+    float
+        Pion-induced QED contribution to the cross section (10⁻⁴² cm²/GeV).
+    """
+    E0 = (mn**2 + me**2 - mp**2) / (2 * mn)
+    Q2 = mp**2 - mn**2 + 2 * mp * (E_nu - E_e)
+    beta = np.sqrt(1 + (4 * mpi**2) / Q2)
+    
+    # Calculate delta_gV (nucleon structure correction from pions)
+    term1 =  1 + 2 * gA**2
+    
+    term2_num = (1 + 3 * gA**2) / 2 + (1 - beta**2) / (2 * beta**2) * gA**2
+    term2 = term2_num * beta * np.log(np.abs((beta - 1) / (beta + 1)))
+    
+    term3 = -np.pi * gA**2 * (Q2 / (4 * mn * mpi) + 
+                              mpi / mn * (1 + 1/(4 * beta**2) - 
+                                          (beta**2 * np.arcsin(1/beta)) / np.sqrt(beta**2 - 1)))
+    
+    delta_gV = -(1/2) * (term1 + term2 + term3) * gV
+    
+    # Calculate the main expression
+    factor1 = (1 - E0/E_nu - (me**2 + Q2) / (4 * E_nu**2)) * 2 * gV * delta_gV
+    
+    term_a = np.pi * gA**2 * np.arcsin(1/beta) * (np.sqrt(Q2) / E_nu) * gA
+    term_b = (2 + beta * np.log(np.abs((beta - 1) / (beta + 1)))) * (c4 + 1/(4 * mn) - 11/12 * gA**2/mn) * (Q2 / E_nu) * gA
+    term_c = - ((1 + 3 * beta**2)/9 + 
+                                          (-5 + beta**4)/(6 * beta) * np.log(np.abs((beta - 1) / (beta + 1))))* (Q2 / (4 * mn* E_nu)) * gA
+    
+    factor2 = term_a + term_b + term_c
+    
+    main_term = (factor1 - factor2) * mp / np.pi
+    
+    prefactor = 1e16 * hc**2 * GF**2 * Vud**2 * Zpi * alpha / np.pi
+    
+    return prefactor * main_term
+    
 def delta_v(beta):
     """
     Virtual-photon QED correction.
@@ -946,7 +1011,8 @@ def main():
         * The inelastic positron energy spectrum (via result_inelastic)
         * The QED radiative correction to elastic positron energy spectrum (via result_elastic)
         * The QED radiative correction to electromagnetic energy spectrum with phase-space integration in the static limit (via result_EM_static)
-        * The QED radiative correction to electromagnetic energy spectrum (via result_EM)
+        * The QED radiative correction to electromagnetic energy spectrum (via result_EM)       
+        * The pion-induced QED contribution to energy spectra (via pions)
         * The leading-order positron energy spectrum with recoil, weak magnetism, and nucleon structure corrections (via result_LO)
 
     The function is intended as a demonstration: it prints out the computed spectra for the chosen example kinematics.
@@ -954,7 +1020,7 @@ def main():
 
     Note:
         - The function expects all the required calculation functions (result3D, resultLOphoton, result2D, result_inelastic, result_elastic,
-          result_EM_static, result_EM, result_LO, delta_v, f2, delta_s, delta_2p, delta_2_em, delta_1, delta_2) to be defined in the same module.
+          result_EM_static, result_EM, result_LO, pions, delta_v, f2, delta_s, delta_2p, delta_2_em, delta_1, delta_2) to be defined in the same module.
         - The function does not return any value; it outputs results to standard output.
 
     Example:
@@ -963,6 +1029,7 @@ def main():
     """
     mp = constants.physical_constants['proton mass energy equivalent in MeV'][0]/1000       # proton mass in GeV
     mn = constants.physical_constants['neutron mass energy equivalent in MeV'][0]/1000      # neutron mass in GeV
+    mpi = 139.57039/1000      												# pion mass in GeV
     me = constants.physical_constants['electron mass energy equivalent in MeV'][0]/1000     # positron mass in GeV
     GF = constants.physical_constants['Fermi coupling constant'][0]                         # Fermi coupling constant in GeV⁻²
     hc = constants.physical_constants['reduced Planck constant times c in MeV fm'][0]/1000  # GeV·fm (Reduced Planck constant times speed of light)
@@ -979,6 +1046,8 @@ def main():
     E_gamma = 0.0016965                                                            # photon energy in GeV
     f = 0.0035                                                                              # variable f in GeV
     epsilon = 1e-10                                                                         # soft-photon energy cutoff in GeV
+    Zpi = 0.8										# pion isospin-violating low-energy constant
+    c4 = 4.3										# NLO HBChPT low-energy constant (GeV⁻¹)
 
     result = resultLOphoton(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, E_gamma, hc, GF, Vud, alpha)
     print(f"Leading-order result with factorizable radiative corrections for evaluation from positron kinematics, with recoil, weak magnetism, and nucleon structure corrections: {result}")
@@ -995,6 +1064,8 @@ def main():
     print(f"Radiative correction to electromagnetic energy spectrum: {result}")
     result = result_EM_static(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, epsilon, hc, GF, Vud, alpha, delta_1, delta_2)
     print(f"Radiative correction to electromagnetic energy spectrum with phase-space integration in the static limit: {result}")
+    result = pions(mpi, mp, mn, me, gV, gA, E_nu, E_e, hc, GF, Vud, alpha, Zpi, c4)
+    print(f"Pion-induced QED contribution to cross sections: {result}")
     result = result_LO(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, hc, GF, Vud)
     print(f"Leading-order result with recoil, weak magnetism, and nucleon structure corrections: {result}")
 
