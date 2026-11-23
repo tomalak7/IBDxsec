@@ -7,7 +7,7 @@ for a variety of next-to-leading order corrections, including
 - QED radiative corrections (virtual, real soft and hard, region-specific)
 - Recoil, weak magnetism, and nucleon structure corrections
 
-The script provides results with sub-permille accuracy for antineutrino energies below 10 MeV.
+The script provides results with sub-permille accuracy for antineutrino energies below 100-200 MeV.
 
 Electromagnetic energy: the sum of the positron and photon energies.
 
@@ -36,6 +36,7 @@ Key Functions:
 - result_inelastic(...): Positron energy spectrum in inelastic (radiative) kinematics.
 - resultLOphoton(...):   Leading-order result with factorizable radiative corrections for evaluation from positron kinematics.
 - result2D(...):         2D distribution in positron energy and angle in radiative IBD.
+- result2Denergy(...):         2D distribution in positron energy and photon energy.
 - result3D(...):         3D distribution in positron energy, angle, and photon energy in radiative IBD.
 
 Usage:
@@ -51,11 +52,11 @@ Dependencies:
 - scipy.special.spence
 
 Author: Oleksandr Tomalak
-Date: 21-08-2026
+Date: 23-11-2026
 
 References:
 -----------
-- Tomalak, O. (2025, 2026). Theory of inverse beta decay for reactor antineutrinos, arXiv:2512.07956, arXiv:2604.07113, and arXiv:2608.X
+- Tomalak, O. (2025, 2026). Theory of inverse beta decay for reactor antineutrinos, arXiv:2512.07956, arXiv:2604.07113, and arXiv:2608.22845
 """
 
 import numpy as np
@@ -252,7 +253,7 @@ def pions(mpi, mp, mn, me, gV, gA, E_nu, E_e, hc, GF, Vud, alpha, Zpi, c4):
     
     term_a = np.pi * gA**2 * np.arcsin(1/beta) * (np.sqrt(Q2) / E_nu) * gA
     term_b = (2 + beta * np.log(np.abs((beta - 1) / (beta + 1)))) * (c4 + 1/(4 * mn) - 11/12 * gA**2/mn) * (Q2 / E_nu) * gA
-    term_c = - ((1 + 3 * beta**2)/9 + 
+    term_c = - ((1 + 3 * beta**2)/9 - 
                                           (-5 + beta**4)/(6 * beta) * np.log(np.abs((beta - 1) / (beta + 1))))* (Q2 / (4 * mn* E_nu)) * gA
     
     factor2 = term_a + term_b + term_c
@@ -1029,7 +1030,7 @@ def resultLOphoton(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, l0, epsilon, hc, GF, 
     term7 = FF(mp, me, gV, gA, rV2, rA2, E0, Enu, Q2, hc)
     
     return prefactor * (term1_corr + term2 + term3 + term4 + term5 + term6 + term7)
-
+        
 def result2D(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, f, hc, GF, Vud, alpha):
     """
     2-dimensional differential cross section in positron energy and angle for radiative IBD.
@@ -1180,6 +1181,141 @@ def result3D(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee, Egamma, f, hc, GF, Vud,
     prefactor = 1e16 * hc**2 * alpha / pi * GF**2 * Vud**2 * mp / (pi * Enu**2) * (1 / Egamma)
     
     return prefactor * np.real(sum_couplings + diff_couplings)
+    
+def result2Denergy(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee, Egamma, epsilon, hc, GF, Vud, alpha):
+    """
+    2D distribution in positron energy and photon energy for radiative IBD.
+
+    Parameters
+    ----------
+    mp, mn, me : float
+        Masses of proton, neutron, and positron (GeV).
+    gV, gA : float
+        Vector and axial-vector coupling constants.
+    rV2, rA2 : float
+        Squared isovector-vector and axial-vector radii (fm²).
+    muV : float
+        Isovector-vector magnetic moment.
+    Enu : float
+        Antineutrino energy (GeV).
+    Ee : float
+        Positron energy (GeV).
+    Egamma : float
+        Photon energy (GeV).
+    epsilon : float
+        Soft-photon energy cutoff (GeV).
+    hc : float
+        Reduced Planck constant times speed of light (GeV·fm).
+    GF : float
+        Fermi coupling constant (GeV⁻²).
+    Vud : float
+        CKM matrix element.
+    alpha : float
+        Fine-structure constant.
+
+    Returns
+    -------
+    float
+        2D differential cross section (10⁻⁴² cm²/GeV²).
+    """
+
+    pi = np.pi
+
+    l0 = mp + Enu - Ee
+    s = mp**2 + 2 * mp * Enu
+
+    # ------------------------------------------------------------------
+    # Kinematic boundaries (identical to the Mathematica expressions)
+    # ------------------------------------------------------------------
+    Ee_lower = ((s * (1 - (2 * epsilon) / mp) - mn**2 + me**2) * (mp + Enu - epsilon)
+                - (Enu + epsilon) * np.sqrt(
+                    (s * (1 - (2 * epsilon) / mp) - (mn - me)**2)
+                    * (s * (1 - (2 * epsilon) / mp) - (mn + me)**2))) \
+               / (2 * s * (1 - (2 * epsilon) / mp))
+    Ee_upper = ((s * (1 - (2 * epsilon) / mp) - mn**2 + me**2) * (mp + Enu - epsilon)
+                + (Enu + epsilon) * np.sqrt(
+                    (s * (1 - (2 * epsilon) / mp) - (mn - me)**2)
+                    * (s * (1 - (2 * epsilon) / mp) - (mn + me)**2))) \
+               / (2 * s * (1 - (2 * epsilon) / mp))
+    EEelastic_lower = (mp + Enu) / 2 * (1 + me**2 / (mp * (mp + 2 * Enu) - mn**2)) \
+                       - np.sqrt(mn**2 + Enu**2) / 2 * (1 - me**2 / (mp * (mp + 2 * Enu) - mn**2))
+
+    pe = np.sqrt(Ee**2 - me**2)
+
+    # ------------------------------------------------------------------
+    # The f-integrand: same 3D distribution as used by result3D
+    # ------------------------------------------------------------------
+    def integrand(f):
+        return result3D(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee,
+                        Egamma, f, hc, GF, Vud, alpha)
+
+    def integrate(f_lo, f_hi):
+        """Plain adaptive quad over [f_lo, f_hi]."""
+        if not (f_hi > f_lo):
+            return 0.0
+        val, _ = quad(integrand, f_lo, f_hi, epsabs=1e-15, epsrel=1e-12, limit=200)
+        return val
+
+    Eg_low_inel = -Enu + ((mp + 2 * Enu) * (mp + 2 * Enu - 2 * Ee) - mn**2 + me**2) \
+                  / (2 * (mp + 2 * Enu - pe - Ee))
+    Eg_high_inel = Enu + (mp * (mp - 2 * Ee) - mn**2 + me**2) \
+                   / (2 * (mp + pe - Ee))
+
+    # Branch 1
+    if (Ee_lower < Ee <= Ee_upper) and (Eg_low_inel < Egamma <= Eg_high_inel):
+        return integrate(Enu - pe,
+                         np.sqrt((l0 - Egamma)**2 - mn**2) + Egamma)
+
+    # Branch 2
+    Eg_2_lo = (1 + (2 * (np.sqrt((l0 - epsilon)**2 - mn**2) - epsilon))
+               / (l0 - (np.sqrt((l0 - epsilon)**2 - mn**2) - epsilon))) * epsilon
+    if (Ee_lower < Ee <= Ee_upper) and (Eg_2_lo < Egamma <= Eg_low_inel):
+        return integrate(np.sqrt((l0 - Egamma)**2 - mn**2) - Egamma,
+                         np.sqrt((l0 - Egamma)**2 - mn**2) + Egamma)
+
+    # Branch 3
+    if (Ee_lower < Ee <= Ee_upper) and (epsilon < Egamma <= Eg_2_lo):
+        return integrate(np.sqrt((l0 - Egamma)**2 - mn**2) - Egamma,
+                         np.sqrt((l0 - epsilon)**2 - mn**2) - epsilon)
+
+    # Branch 4
+    if (EEelastic_lower < Ee <= Ee_lower) and (Eg_low_inel < Egamma <= Eg_high_inel):
+        return integrate(Enu - pe,
+                         np.sqrt((l0 - Egamma)**2 - mn**2) + Egamma)
+
+    # Branch 5
+    Eg_5_lo = Enu + (mp * (mp - 2 * Ee) - mn**2 + me**2) \
+              / (2 * (mp - pe - Ee))
+    if (EEelastic_lower < Ee <= Ee_lower) and (Eg_5_lo < Egamma <= Eg_low_inel):
+        return integrate(np.sqrt((l0 - Egamma)**2 - mn**2) - Egamma,
+                         np.sqrt((l0 - Egamma)**2 - mn**2) + Egamma)
+
+    # Branch 6
+    Eg_6_lo = -Enu + ((mp + 2 * Enu) * (mp + 2 * Enu - 2 * Ee) - mn**2 + me**2) \
+              / (2 * (mp + 2 * Enu + pe - Ee))
+    if (EEelastic_lower < Ee <= Ee_lower) and (Eg_6_lo < Egamma <= Eg_high_inel):
+        return integrate(np.sqrt((l0 - Egamma)**2 - mn**2) - Egamma,
+                         Enu + pe)
+
+    # Branch 7
+    Eg_7_lo = Enu + (mp * (mp - 2 * Ee) - mn**2 + me**2) \
+              / (2 * (mp - pe - Ee))
+    Eg_7_hi = Enu + (mp * (mp - 2 * Ee) - mn**2 + me**2) \
+              / (2 * (mp + pe - Ee))
+    if (me < Ee <= EEelastic_lower) and (Eg_7_lo < Egamma <= Eg_7_hi):
+        return integrate(Enu - pe,
+                         np.sqrt((l0 - Egamma)**2 - mn**2) + Egamma)
+
+    # Branch 8
+    if (me < Ee <= EEelastic_lower) and (Eg_low_inel < Egamma <= Eg_7_lo):
+        return integrate(Enu - pe, Enu + pe)
+
+    # Branch 9
+    if (me < Ee <= EEelastic_lower) and (Eg_6_lo < Egamma <= Eg_low_inel):
+        return integrate(np.sqrt((l0 - Egamma)**2 - mn**2) - Egamma,
+                         Enu + pe)
+
+    return 0.0
 
 def main():
     """
