@@ -56,7 +56,7 @@ Date: 23-11-2026
 
 References:
 -----------
-- Tomalak, O. et al. (2025, 2026). Theory of inverse beta decay for reactor antineutrinos, arXiv:2512.07956, arXiv:2604.07113, and arXiv:2608.22845
+- Tomalak, O. et al. (2025, 2026). Theory of inverse beta decay for reactor antineutrinos, arXiv:2512.07956, arXiv:2512.07957, arXiv:2604.07113, and arXiv:2608.22845
 """
 
 import numpy as np
