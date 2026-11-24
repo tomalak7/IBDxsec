@@ -19,10 +19,10 @@ Key Functions:
 - FF(...):               Nucleon structure (form factor) correction.
 - result_LO(...):        Leading-order IBD spectrum with recoil, weak magnetism, and nucleon structure corrections.
 - pions(...):            Pion-induced QED radiative correction to the IBD spectrum.
-- pion_Sigma(...):       Sigma function for Delta-induced QED contributions (polylogarithm sums).
+- pion_Sigma(...):            Sigma function for Delta-induced QED contributions (polylogarithm sums).
 - delta_gV_LO(...):      Leading-order Delta contribution to gV.
 - delta_gV_NLO(...):     Next-to-leading-order Delta contribution to gV.
-- deltas(...):           Delta contribution in pion-induced QED radiative correction to the IBD spectrum.
+- deltas(...):                     Delta contribution in pion-induced QED radiative correction to the IBD spectrum.
 - delta_v(...):          Factorizable virtual-photon QED correction.
 - f2(...):               QED form factor f2 for nonfactorizable virtual-photon QED correction.
 - delta_s(...):          Soft-photon QED correction.
@@ -36,7 +36,7 @@ Key Functions:
 - result_inelastic(...): Positron energy spectrum in inelastic (radiative) kinematics.
 - resultLOphoton(...):   Leading-order result with factorizable radiative corrections for evaluation from positron kinematics.
 - result2D(...):         2D distribution in positron energy and angle in radiative IBD.
-- result2Denergy(...):   2D distribution in positron energy and photon energy.
+- result2Denergy(...):         2D distribution in positron energy and photon energy.
 - result3D(...):         3D distribution in positron energy, angle, and photon energy in radiative IBD.
 
 Usage:
@@ -52,7 +52,7 @@ Dependencies:
 - scipy.special.spence
 
 Author: Oleksandr Tomalak
-Date: 23-11-2026
+Date: 24-11-2026
 
 References:
 -----------
@@ -556,7 +556,7 @@ def delta_2p(Enu, Ee, En, mn, me):
     rho = np.sqrt(1 - beta**2)
     rho_x = np.sqrt(1 - beta_x**2)
 
-    cos_delta = (Enu**2 - beta**2 * Ee**2 - (En**2 - mn**2)) / (2 * beta * Ee * np.sqrt(En**2 - mn**2))
+    cos_delta = (Enu**2 - beta**2 * Ee**2 - beta_x**2 * En**2) / (2 * beta * beta_x * Ee * En)
     
     A = 1 - beta * beta_x * cos_delta
     B = np.sqrt(A**2 - rho**2 * rho_x**2)
@@ -1225,7 +1225,7 @@ def result2Denergy(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee, Egamma, epsilon, 
     s = mp**2 + 2 * mp * Enu
 
     # ------------------------------------------------------------------
-    # Kinematic boundaries
+    # Kinematic boundaries (identical to the Mathematica expressions)
     # ------------------------------------------------------------------
     Ee_lower = ((s * (1 - (2 * epsilon) / mp) - mn**2 + me**2) * (mp + Enu - epsilon)
                 - (Enu + epsilon) * np.sqrt(
@@ -1241,7 +1241,10 @@ def result2Denergy(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee, Egamma, epsilon, 
                        - np.sqrt(mn**2 + Enu**2) / 2 * (1 - me**2 / (mp * (mp + 2 * Enu) - mn**2))
 
     pe = np.sqrt(Ee**2 - me**2)
-    
+
+    # ------------------------------------------------------------------
+    # The f-integrand: same 3D distribution as used by result3D
+    # ------------------------------------------------------------------
     def integrand(f):
         return result3D(mp, mn, me, gV, gA, rV2, rA2, muV, Enu, Ee,
                         Egamma, f, hc, GF, Vud, alpha)
@@ -1360,7 +1363,7 @@ def main():
     """
     mp = constants.physical_constants['proton mass energy equivalent in MeV'][0]/1000       # proton mass in GeV
     mn = constants.physical_constants['neutron mass energy equivalent in MeV'][0]/1000      # neutron mass in GeV
-    mpi = 139.57039/1000      												                # pion mass in GeV
+    mpi = 139.57039/1000      												# pion mass in GeV
     me = constants.physical_constants['electron mass energy equivalent in MeV'][0]/1000     # positron mass in GeV
     GF = constants.physical_constants['Fermi coupling constant'][0]                         # Fermi coupling constant in GeV⁻²
     hc = constants.physical_constants['reduced Planck constant times c in MeV fm'][0]/1000  # GeV·fm (Reduced Planck constant times speed of light)
@@ -1368,20 +1371,20 @@ def main():
     muV = constants.physical_constants['proton mag. mom. to nuclear magneton ratio'][0] - constants.physical_constants['neutron mag. mom. to nuclear magneton ratio'][0]                                                                          # isovector-vector magnetic moment
     Vud = 0.97348                                                                           # CKM matrix element
     gV = 1.02499                                                                            # gV coupling constant
-    lambdaA = 1.27559									                                    # ratio of gA/gV coupling constants
+    lambdaA = 1.27559									    # ratio of gA/gV coupling constants
     gA = lambdaA * gV                                                                       # gA coupling constant
     rV2 = 0.578                                                                             # squared isovector-vector radius in fm²
     rA2 = 0.48                                                                              # squared axial-vector radius in fm²
     E_nu = 0.005                                                                            # antineutrino energy in GeV
     E_e = 0.002                                                                             # positron energy in GeV
-    E_gamma = 0.0016965                                                                     # photon energy in GeV
+    E_gamma = 0.0016965                                                            # photon energy in GeV
     f = 0.0035                                                                              # variable f in GeV
     epsilon = 1e-10                                                                         # soft-photon energy cutoff in GeV
-    Zpi = 0.8										                                        # pion isospin-violating low-energy constant
-    c4 = 1.29										                                        # NLO HBChPT low-energy constant (GeV⁻¹)
-    h = 1.63										                                        # Delta-nucleon-pion coupling constant
-    g1 = -3.08										                                        # Axial-vector coupling constant of delta
-    Delta0 = 0.293										                                    # Delta-nucleon mass splitting (GeV)
+    Zpi = 0.8										# pion isospin-violating low-energy constant
+    c4 = 1.29										# NLO HBChPT low-energy constant (GeV⁻¹)
+    h = 1.63										# Delta-nucleon-pion coupling constant
+    g1 = -3.08										# Axial-vector coupling constant of delta
+    Delta0 = 0.293										# Delta-nucleon mass splitting (GeV)
     
 
     result = resultLOphoton(mp, mn, me, gV, gA, rV2, rA2, muV, E_nu, E_e, E_gamma, hc, GF, Vud, alpha)
